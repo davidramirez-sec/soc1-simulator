@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SOC 1 Audit Simulator — David Ramirez</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:       #0F0E0B;
+  --bg2:      #161410;
+  --bg3:      #1D1A14;
+  --panel:    #201D16;
+  --border:   #2A2520;
+  --border2:  #3D3628;
+  --gold:     #C8961E;
+  --gold-dim: #8A6410;
+  --gold-bg:  rgba(200,150,30,.06);
+  --amber:    #E8A020;
+  --cream:    #EDE8DC;
+  --muted:    #6A6050;
+  --muted2:   #9A8E78;
+  --red:      #C84040;
+  --green:    #4A9460;
+  --blue:     #4A78A8;
+  --font-serif: 'Playfair Display', serif;
+  --font-mono:  'IBM Plex Mono', monospace;
+  --font-sans:  'IBM Plex Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--cream);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* paper grain texture */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: .4;
+}
+
+/* ── HEADER ── */
+.site-header {
+  border-bottom: 1px solid var(--border2);
+  padding: 16px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg2);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-brand {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--gold);
+  letter-spacing: .5px;
+}
+.header-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted2);
+  letter-spacing: 2px;
+}
+.header-back {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted2);
+  text-decoration: none;
+  letter-spacing: 1px;
+  transition: color .2s;
+}
+.header-back:hover { color: var(--gold); }
+
+/* ── INTRO SCREEN ── */
+.intro-screen {
+  max-width: 700px;
+  margin: 80px auto;
+  padding: 0 24px;
+  text-align: center;
+}
+.intro-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--gold);
+  border: 1px solid var(--gold-dim);
+  padding: 5px 14px;
+  margin-bottom: 32px;
+  background: var(--gold-bg);
+}
+.intro-title {
+  font-family: var(--font-serif);
+  font-size: clamp(32px, 5vw, 52px);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--cream);
+  margin-bottom: 20px;
+}
+.intro-title em { color: var(--gold); font-style: normal; }
+.intro-desc {
+  font-size: 15px;
+  color: var(--muted2);
+  line-height: 1.8;
+  margin-bottom: 40px;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.intro-stats {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+}
+.intro-stat { text-align: center; }
+.intro-stat-num {
+  font-family: var(--font-serif);
+  font-size: 36px;
+  color: var(--gold);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.intro-stat-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted2);
+}
+.btn-primary {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  padding: 14px 36px;
+  background: var(--gold);
+  color: var(--bg);
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-weight: 600;
+  transition: all .2s;
+}
+.btn-primary:hover { background: var(--amber); }
+.intro-note {
+  margin-top: 20px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+
+/* ── QUIZ SCREEN ── */
+.quiz-screen {
+  display: none;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+.progress-wrap {
+  margin-bottom: 40px;
+}
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted2);
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.progress-track {
+  height: 2px;
+  background: var(--border2);
+  position: relative;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--gold);
+  transition: width .4s ease;
+}
+
+.scenario-card {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  margin-bottom: 24px;
+}
+.scenario-header {
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.scenario-meta { }
+.scenario-num {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted2);
+  margin-bottom: 6px;
+}
+.scenario-domain {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  padding: 3px 10px;
+  border: 1px solid var(--border2);
+  color: var(--gold);
+  border-color: var(--gold-dim);
+  background: var(--gold-bg);
+}
+.scenario-diff {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 3px 10px;
+  border: 1px solid;
+}
+.diff-easy   { color: var(--green); border-color: var(--green); }
+.diff-medium { color: var(--amber); border-color: var(--amber); }
+.diff-hard   { color: var(--red);   border-color: var(--red); }
+
+.scenario-body { padding: 28px; }
+.scenario-question {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--cream);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.evidence-block {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold-dim);
+  padding: 18px 20px;
+  margin-bottom: 28px;
+}
+.evidence-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+.evidence-text {
+  font-size: 13px;
+  color: var(--muted2);
+  line-height: 1.8;
+}
+.evidence-text strong { color: var(--cream); }
+
+.options-list { display: flex; flex-direction: column; gap: 10px; }
+.option-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  padding: 16px 20px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  transition: all .15s;
+  width: 100%;
+}
+.option-btn:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: var(--gold-bg);
+}
+.option-btn:disabled { cursor: default; }
+.option-btn.selected-correct {
+  border-color: var(--green);
+  background: rgba(74,148,96,.08);
+}
+.option-btn.selected-wrong {
+  border-color: var(--red);
+  background: rgba(200,64,64,.08);
+}
+.option-btn.reveal-correct {
+  border-color: var(--green);
+  background: rgba(74,148,96,.06);
+}
+.option-letter {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted2);
+  width: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.option-text {
+  font-size: 13px;
+  color: var(--cream);
+  line-height: 1.6;
+}
+
+/* feedback */
+.feedback-box {
+  display: none;
+  margin-top: 20px;
+  padding: 20px 24px;
+  border: 1px solid var(--border2);
+  background: var(--bg2);
+  border-left: 3px solid var(--muted);
+}
+.feedback-box.correct { border-left-color: var(--green); }
+.feedback-box.wrong   { border-left-color: var(--red); }
+.feedback-verdict {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  margin-bottom: 10px;
+}
+.feedback-box.correct .feedback-verdict { color: var(--green); }
+.feedback-box.wrong   .feedback-verdict { color: var(--red); }
+.feedback-text {
+  font-size: 13px;
+  color: var(--muted2);
+  line-height: 1.8;
+}
+.feedback-text strong { color: var(--cream); }
+.feedback-senior {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+  font-style: italic;
+}
+.feedback-senior::before {
+  content: 'Senior auditor note: ';
+  color: var(--gold);
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+.btn-next {
+  display: none;
+  margin-top: 20px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  padding: 12px 28px;
+  background: none;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all .2s;
+}
+.btn-next:hover { background: var(--gold-bg); }
+
+/* ── RESULTS SCREEN ── */
+.results-screen {
+  display: none;
+  max-width: 700px;
+  margin: 60px auto;
+  padding: 0 24px 80px;
+  text-align: center;
+}
+.results-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--muted2);
+  margin-bottom: 20px;
+}
+.results-score-wrap {
+  margin: 32px 0;
+  position: relative;
+  display: inline-block;
+}
+.results-score {
+  font-family: var(--font-serif);
+  font-size: 96px;
+  font-weight: 700;
+  color: var(--gold);
+  line-height: 1;
+}
+.results-score-denom {
+  font-family: var(--font-serif);
+  font-size: 36px;
+  color: var(--muted2);
+}
+.results-title {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  color: var(--cream);
+  margin-bottom: 16px;
+}
+.results-archetype {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--gold);
+  border: 1px solid var(--gold-dim);
+  padding: 6px 18px;
+  background: var(--gold-bg);
+  margin-bottom: 24px;
+}
+.results-desc {
+  font-size: 14px;
+  color: var(--muted2);
+  line-height: 1.8;
+  max-width: 500px;
+  margin: 0 auto 40px;
+}
+.results-breakdown {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  padding: 24px;
+  margin-bottom: 32px;
+  text-align: left;
+}
+.rb-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted2);
+  margin-bottom: 16px;
+}
+.rb-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.rb-row:last-child { border-bottom: none; }
+.rb-label { color: var(--muted2); font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; }
+.rb-val { font-family: var(--font-serif); font-size: 16px; }
+.rb-val.correct { color: var(--green); }
+.rb-val.wrong   { color: var(--red); }
+.rb-val.gold    { color: var(--gold); }
+
+.btn-restart {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  padding: 14px 36px;
+  background: none;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all .2s;
+  margin-right: 12px;
+}
+.btn-restart:hover { background: var(--gold-bg); }
+
+.results-share {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+
+@media (max-width: 600px) {
+  .site-header { padding: 12px 16px; }
+  .scenario-body { padding: 20px; }
+  .scenario-header { padding: 16px 20px; }
+  .intro-stats { gap: 24px; }
+  .results-score { font-size: 72px; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-brand">SOC 1 Audit Simulator</div>
+  <div class="header-meta">BY DAVID RAMIREZ</div>
+  <a class="header-back" href="https://davidramirez-sec.github.io/portfolio">← PORTFOLIO</a>
+</header>
+
+<!-- INTRO -->
+<div class="intro-screen" id="introScreen">
+  <div class="intro-badge">SSAE 18 · ITGC · SOC 1</div>
+  <h1 class="intro-title">How do you think<br>under <em>audit pressure?</em></h1>
+  <p class="intro-desc">Six real-world ITGC scenarios covering logical access, change management, and computer operations. Read the evidence. Make the call. Find out what kind of auditor you are.</p>
+  <div class="intro-stats">
+    <div class="intro-stat">
+      <div class="intro-stat-num">6</div>
+      <div class="intro-stat-label">SCENARIOS</div>
+    </div>
+    <div class="intro-stat">
+      <div class="intro-stat-num">3</div>
+      <div class="intro-stat-label">ITGC DOMAINS</div>
+    </div>
+    <div class="intro-stat">
+      <div class="intro-stat-num">~12</div>
+      <div class="intro-stat-label">MINUTES</div>
+    </div>
+  </div>
+  <button class="btn-primary" onclick="startQuiz()">BEGIN ASSESSMENT</button>
+  <p class="intro-note">No signup required · Built on SSAE 18 / SOC 1 criteria</p>
+</div>
+
+<!-- QUIZ -->
+<div class="quiz-screen" id="quizScreen">
+  <div class="progress-wrap">
+    <div class="progress-meta">
+      <span id="progressLabel">Scenario 1 of 6</span>
+      <span id="scoreLabel">Score: 0</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+  </div>
+  <div id="scenarioContainer"></div>
+</div>
+
+<!-- RESULTS -->
+<div class="results-screen" id="resultsScreen">
+  <div class="results-badge">ASSESSMENT COMPLETE // SOC 1 AUDIT SIMULATOR</div>
+  <div class="results-score-wrap">
+    <span class="results-score" id="finalScore">0</span>
+    <span class="results-score-denom" id="finalDenom">/6</span>
+  </div>
+  <div class="results-archetype" id="archetypeLabel"></div>
+  <h2 class="results-title" id="resultsTitle"></h2>
+  <p class="results-desc" id="resultsDesc"></p>
+  <div class="results-breakdown" id="resultsBreakdown"></div>
+  <button class="btn-restart" onclick="restartQuiz()">RETAKE</button>
+  <div class="results-share">Share your result — the audit community will have opinions.</div>
+</div>
+
+<script>
+const SCENARIOS = [
+  {
+    num: 1,
+    domain: 'LOGICAL ACCESS',
+    difficulty: 'easy',
+    question: 'You are reviewing quarterly access certifications for a financial services company. The access review report shows 847 accounts certified, 12 accounts flagged for removal, and 3 accounts marked "pending manager response." The client tells you the pending accounts belong to employees currently on approved leave and will be reviewed on their return. What is your assessment?',
+    evidence: 'Access review completed <strong>March 31</strong>. Flagged accounts removed <strong>April 3</strong>. Pending accounts: two employees on medical leave, one on parental leave. Manager confirmation emails sent but not yet received. Company policy states access reviews must be completed within <strong>30 days of quarter end</strong>. Review was initiated February 28.',
+    options: [
+      { letter: 'A', text: 'The control is operating effectively. Pending accounts for employees on approved leave are a reasonable exception and do not constitute a control gap.' },
+      { letter: 'B', text: 'The control has a potential exception. The 3 pending accounts represent incomplete certifications and should be documented as a finding, even if the business justification is reasonable.' },
+      { letter: 'C', text: 'The control has failed. Any incomplete certifications at quarter end represent a control deficiency regardless of circumstance.' },
+      { letter: 'D', text: 'More evidence is needed before a conclusion can be reached. Request the manager confirmation emails before forming an opinion.' },
+    ],
+    correct: 1,
+    feedback: 'Option B is the right call. <strong>Incomplete certifications are incomplete certifications</strong> — the business justification may be reasonable and worthy of note, but the auditor\'s job is to document the exception, not pre-approve it. A well-documented finding with a sound management response is far better than glossing over an incomplete population.',
+    senior: 'The leave justification sounds reasonable until you realize those accounts still have active access. If one of those employees\' credentials were compromised during their leave, who certified that the access was appropriate? Document it, note the context, and let the SOC report tell the full story.'
+  },
+  {
+    num: 2,
+    domain: 'CHANGE MANAGEMENT',
+    difficulty: 'medium',
+    question: 'During a SOC 1 walkthrough for a payroll processing company, you sample 25 change records from the past year. You find that 23 have proper approvals and post-implementation sign-off. Two records — both emergency patches applied in August — were approved after implementation due to the urgency of the fix. The patches addressed a critical security vulnerability. What do you conclude?',
+    evidence: 'Emergency patch 1: applied <strong>August 4</strong>, retroactive approval <strong>August 5</strong>. Emergency patch 2: applied <strong>August 4</strong>, retroactive approval <strong>August 6</strong>. Both patches addressed <strong>CVE-2023-34362</strong> (MOVEit Transfer — CVSS 9.8). Company change policy includes an emergency change procedure requiring retroactive approval within <strong>24 hours</strong>. Both retroactive approvals fall within that window.',
+    options: [
+      { letter: 'A', text: 'No exception. The company followed its emergency change procedure correctly and both approvals were obtained within the required 24-hour window.' },
+      { letter: 'B', text: 'Exception on both changes. Approval must precede implementation for all changes regardless of emergency designation.' },
+      { letter: 'C', text: 'Observation, not exception. Note the emergency changes in the report with context but do not classify as a control failure given the policy allows for this scenario.' },
+      { letter: 'D', text: 'Escalate to management before concluding. A CVSS 9.8 vulnerability may have compliance implications beyond the change management control.' },
+    ],
+    correct: 0,
+    feedback: 'Option A is correct. <strong>The company had a documented emergency change procedure and followed it.</strong> Both retroactive approvals landed within the 24-hour policy window. Auditors test controls as designed — if the design includes emergency provisions and those provisions were followed, the control operated effectively. The instinct to flag anything that looks different is understandable but the evidence here is clean.',
+    senior: 'MOVEit was everywhere in 2023. The right move was patching fast. If a company patches a 9.8 CVSS vulnerability in hours and gets retroactive sign-off within a day, that\'s exactly what a mature change management process looks like under pressure. Learn the difference between deviation from procedure and procedure working as intended.'
+  },
+  {
+    num: 3,
+    domain: 'LOGICAL ACCESS',
+    difficulty: 'medium',
+    question: 'You are testing user provisioning controls at a SaaS company. Their process requires HR to notify IT within 24 hours of a new hire start date, and IT must provision access within 48 hours of receiving the request. You sample 30 provisioning records. 28 are clean. Two show IT provisioned access before receiving the HR notification — the employees were provisioned on day one but the formal HR request came through on day two. Both employees had proper final approvals on file.',
+    evidence: 'Employee 1: Start date <strong>June 12</strong>. Access provisioned <strong>June 12 9:00am</strong>. HR ticket created <strong>June 13 8:30am</strong>. Manager pre-approval email dated <strong>June 10</strong>. Employee 2: Start date <strong>June 19</strong>. Access provisioned <strong>June 19 8:45am</strong>. HR ticket created <strong>June 20 9:15am</strong>. Manager pre-approval email dated <strong>June 17</strong>.',
+    options: [
+      { letter: 'A', text: 'No exception. Manager pre-approvals were in place before access was granted. The HR ticket timing is an administrative issue, not a control failure.' },
+      { letter: 'B', text: 'Exception on both. Access was provisioned before the formal HR request in both cases, which means the control as designed did not operate as intended.' },
+      { letter: 'C', text: 'This is ambiguous and could go either way. Document the facts and note that a reasonable auditor could conclude differently.' },
+      { letter: 'D', text: 'No exception on Employee 1, exception on Employee 2. The gap on Employee 2 is slightly longer.' },
+    ],
+    correct: 1,
+    feedback: 'Option B is the right call, and this one is genuinely uncomfortable. <strong>The control as designed requires HR notification before provisioning.</strong> Both cases bypassed that step. The manager pre-approvals are mitigating context but they do not fix the sequence — IT acted without the required trigger. Two exceptions out of 30 is a 6.7% deviation rate, which is meaningful. Note the pre-approvals as context but document the deviation.',
+    senior: 'This one trips people up because the outcome was fine — the right people got access to the right systems. But you\'re testing the control, not the outcome. If IT can provision access without an HR ticket because a manager sent an email, then the formal control isn\'t really the control. That gap needs to be documented.'
+  },
+  {
+    num: 4,
+    domain: 'COMPUTER OPERATIONS',
+    difficulty: 'hard',
+    question: 'A financial technology company uses automated batch jobs to process end-of-day transactions. Their control states that any batch job failure must generate an automated alert and be resolved within 2 hours, with resolution documented in the ITSM system. You review 6 months of batch job logs and find one incident in March where a job failed, the alert fired, but the resolution ticket was not created until 3 hours after the failure — however the job was actually restarted and completed successfully within 90 minutes. What is your conclusion?',
+    evidence: 'March 14 batch failure: Job failed at <strong>11:42pm</strong>. Alert generated <strong>11:42pm</strong>. Job restarted at <strong>12:08am</strong>. Job completed successfully at <strong>12:31am</strong> (49 minutes after restart). Ticket created in ServiceNow at <strong>2:44am</strong>. Ticket notes: "On-call engineer responded immediately, job restarted manually. Ticket created after resolution due to workload." Control requirement: resolution within 2 hours, <strong>documented in ITSM</strong>.',
+    options: [
+      { letter: 'A', text: 'No exception. The job was resolved within 90 minutes which is well within the 2-hour window. The ticket timing is administrative.' },
+      { letter: 'B', text: 'Exception. The control requires documentation in the ITSM system as part of resolution. The ticket was created at 2:44am — 3 hours after the failure — which means the documentation component of the control did not operate within the required window.' },
+      { letter: 'C', text: 'No exception with observation. The technical resolution was timely and effective. Note the documentation gap as an observation for management awareness but do not classify as a control exception.' },
+      { letter: 'D', text: 'Exception on documentation only. The resolution itself was effective but the ITSM documentation requirement is part of the control design and was not met within the stated timeframe.' },
+    ],
+    correct: 3,
+    feedback: 'Option D is the most precise answer, and the distinction from B matters. <strong>The resolution was effective — the job was back up in 49 minutes.</strong> That part of the control worked. But the ITSM documentation is also part of the control, and it was not completed within 2 hours. Splitting the finding this way gives an accurate and fair picture: strong technical response, documentation gap. Option B treats it as a single failure which overstates the problem. Option A and C both ignore a clear control requirement.',
+    senior: 'The on-call engineer did the right thing operationally. But "I\'ll do the paperwork later" is how audit trails disappear. The documentation requirement exists so there\'s a contemporaneous record of what happened and when. A ticket created 3 hours later, after the fact, carries less evidential weight than one created during the incident. Note the technical success, document the gap, and recommend the team use a quick mobile ticket as part of on-call procedure.'
+  },
+  {
+    num: 5,
+    domain: 'CHANGE MANAGEMENT',
+    difficulty: 'hard',
+    question: 'This scenario involves a Polish fintech company subject to NIS2 Directive requirements. Their change management policy requires all production changes to be tested in a staging environment and approved by two senior engineers before deployment. You sample 40 changes over the audit period. One change — a configuration update to a payment processing module — shows sign-off from only one engineer. The company explains the second engineer was on sick leave and the deployment was time-sensitive due to a regulatory deadline.',
+    evidence: 'Change record CR-2024-0847: Deployed <strong>October 15, 2024</strong>. Approved by: <strong>1 of 2 required approvers</strong>. Second approver: on certified sick leave October 12-18. Change description: configuration update to comply with PSD2 transaction monitoring requirement. Regulatory deadline: October 15. Staging test: completed October 13, no issues found. NIS2 Article 21 requires proportionate security measures for network and information systems of essential entities.',
+    options: [
+      { letter: 'A', text: 'Exception. The two-approver requirement was not met regardless of the circumstances. The company should have either delayed the deployment or obtained approval from an alternative authorized approver.' },
+      { letter: 'B', text: 'No exception. The regulatory deadline created a legitimate business necessity and the staging test provides sufficient compensating evidence of due diligence.' },
+      { letter: 'C', text: 'Exception with mitigating factors. Document the deviation from the two-approver control, note the regulatory context and successful staging test as mitigating factors, and recommend the company establish a formal emergency approval procedure for future situations.' },
+      { letter: 'D', text: 'Escalate to the engagement manager. The NIS2 implications add regulatory complexity beyond standard ITGC testing scope.' },
+    ],
+    correct: 2,
+    feedback: 'Option C is the right answer, and it demonstrates mature audit judgment. <strong>The control deviation is real and must be documented.</strong> One approver when two are required is an exception. But the context is genuinely relevant: regulatory deadline, successful staging test, certified sick leave. The most useful thing an auditor can do here is document the exception clearly, note the mitigating evidence honestly, and recommend a gap in their procedure — they have no emergency approval pathway for exactly this kind of situation. That recommendation adds real value.',
+    senior: 'Under NIS2, this company has obligations around change management as part of their security posture. A one-approver deployment to a payment processing module is not something to wave through, even for a PSD2 deadline. The exception stands. But your job isn\'t just to find the gap — it\'s to help them not be in this position again. The recommendation to establish an emergency approver designation is what separates a useful audit finding from a checkbox.'
+  },
+  {
+    num: 6,
+    domain: 'LOGICAL ACCESS',
+    difficulty: 'hard',
+    question: 'During a SOC 1 Type II examination for a healthcare data processor, you are testing the termination process for departed employees. The control requires access to be revoked within 24 hours of termination. You review 50 termination records. One former employee\'s access to a non-production test environment was revoked 6 days after termination. All production system access was revoked within 2 hours. The company argues the test environment contains no real patient data.',
+    evidence: 'Employee terminated: <strong>February 3</strong>. Production access revoked: <strong>February 3</strong> (within 2 hours). Test environment access revoked: <strong>February 9</strong> (6 days later). Test environment contains: <strong>synthetic test data only</strong>, confirmed by data classification policy dated January 2024. Test environment accessible via same VPN credentials as production. Control wording: "Access to all company systems shall be revoked within 24 hours of termination."',
+    options: [
+      { letter: 'A', text: 'No exception. The test environment contains no real patient data and poses no meaningful risk. The spirit of the control — protecting patient information — was met.' },
+      { letter: 'B', text: 'Exception. The control states "all company systems" and the test environment is a company system. The 24-hour requirement was not met regardless of data classification.' },
+      { letter: 'C', text: 'No exception. The production access revocation within 2 hours demonstrates a strong control environment. The test environment delay is immaterial.' },
+      { letter: 'D', text: 'Exception with a significant concern. The test environment shares VPN credentials with production, meaning delayed revocation in test could have provided a pathway to production systems.' },
+    ],
+    correct: 3,
+    feedback: 'Option D is the sharpest answer here, and it requires catching a detail that most people miss. <strong>The test environment shares VPN credentials with production.</strong> That changes everything. This isn\'t just a control deviation against a low-risk system — delayed access revocation in an environment accessible via the same credentials as production is a meaningful security gap. The synthetic data argument falls apart the moment you realize the terminated employee potentially had a path to production. This is a reportable exception with a clear risk narrative.',
+    senior: 'The "it\'s just a test environment" argument is one of the most common things you\'ll hear from clients and it\'s almost always incomplete. Your job when you hear it is to ask: what else does access to that environment give someone? Shared credentials, network adjacency, configuration files, API keys in config — test environments are where security hygiene breaks down. The data classification is irrelevant once you spot the credential overlap.'
+  },
+];
+
+let currentIdx = 0;
+let score = 0;
+let answered = false;
+let domainScores = { 'LOGICAL ACCESS': { correct: 0, total: 0 }, 'CHANGE MANAGEMENT': { correct: 0, total: 0 }, 'COMPUTER OPERATIONS': { correct: 0, total: 0 } };
+
+function startQuiz() {
+  document.getElementById('introScreen').style.display = 'none';
+  document.getElementById('quizScreen').style.display = 'block';
+  currentIdx = 0;
+  score = 0;
+  answered = false;
+  domainScores = { 'LOGICAL ACCESS': { correct: 0, total: 0 }, 'CHANGE MANAGEMENT': { correct: 0, total: 0 }, 'COMPUTER OPERATIONS': { correct: 0, total: 0 } };
+  renderScenario();
+}
+
+function renderScenario() {
+  const s = SCENARIOS[currentIdx];
+  answered = false;
+
+  document.getElementById('progressLabel').textContent = `Scenario ${currentIdx + 1} of ${SCENARIOS.length}`;
+  document.getElementById('scoreLabel').textContent = `Score: ${score}`;
+  document.getElementById('progressFill').style.width = `${(currentIdx / SCENARIOS.length) * 100}%`;
+
+  const diffClass = s.difficulty === 'easy' ? 'diff-easy' : s.difficulty === 'medium' ? 'diff-medium' : 'diff-hard';
+
+  document.getElementById('scenarioContainer').innerHTML = `
+    <div class="scenario-card">
+      <div class="scenario-header">
+        <div class="scenario-meta">
+          <div class="scenario-num">SCENARIO ${s.num.toString().padStart(2,'0')}</div>
+          <div class="scenario-domain">${s.domain}</div>
+        </div>
+        <div class="scenario-diff ${diffClass}">${s.difficulty.toUpperCase()}</div>
+      </div>
+      <div class="scenario-body">
+        <div class="scenario-question">${s.question}</div>
+        <div class="evidence-block">
+          <div class="evidence-label">EVIDENCE SUMMARY</div>
+          <div class="evidence-text">${s.evidence}</div>
+        </div>
+        <div class="options-list">
+          ${s.options.map((o, i) => `
+            <button class="option-btn" id="opt-${i}" onclick="selectOption(${i})">
+              <span class="option-letter">${o.letter}.</span>
+              <span class="option-text">${o.text}</span>
+            </button>
+          `).join('')}
+        </div>
+        <div class="feedback-box" id="feedbackBox">
+          <div class="feedback-verdict" id="feedbackVerdict"></div>
+          <div class="feedback-text" id="feedbackText"></div>
+          <div class="feedback-senior" id="feedbackSenior"></div>
+        </div>
+        <button class="btn-next" id="btnNext" onclick="nextScenario()">
+          ${currentIdx < SCENARIOS.length - 1 ? 'NEXT SCENARIO →' : 'VIEW RESULTS →'}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function selectOption(idx) {
+  if (answered) return;
+  answered = true;
+  const s = SCENARIOS[currentIdx];
+  const isCorrect = idx === s.correct;
+  if (isCorrect) score++;
+
+  domainScores[s.domain].total++;
+  if (isCorrect) domainScores[s.domain].correct++;
+
+  // Style buttons
+  for (let i = 0; i < s.options.length; i++) {
+    const btn = document.getElementById('opt-' + i);
+    btn.disabled = true;
+    if (i === idx) {
+      btn.classList.add(isCorrect ? 'selected-correct' : 'selected-wrong');
+    } else if (i === s.correct && !isCorrect) {
+      btn.classList.add('reveal-correct');
+    }
+  }
+
+  // Show feedback
+  const fb = document.getElementById('feedbackBox');
+  fb.style.display = 'block';
+  fb.className = 'feedback-box ' + (isCorrect ? 'correct' : 'wrong');
+  document.getElementById('feedbackVerdict').textContent = isCorrect ? '✓ CORRECT' : '✗ INCORRECT';
+  document.getElementById('feedbackText').innerHTML = s.feedback;
+  document.getElementById('feedbackSenior').textContent = s.senior;
+
+  document.getElementById('btnNext').style.display = 'inline-block';
+}
+
+function nextScenario() {
+  currentIdx++;
+  if (currentIdx >= SCENARIOS.length) {
+    showResults();
+  } else {
+    renderScenario();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+function showResults() {
+  document.getElementById('quizScreen').style.display = 'none';
+  const r = document.getElementById('resultsScreen');
+  r.style.display = 'block';
+
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('finalDenom').textContent = '/' + SCENARIOS.length;
+  document.getElementById('progressFill').style.width = '100%';
+
+  const archetypes = [
+    { min: 0, max: 1, label: 'DEVELOPING AUDITOR', title: 'Keep building your instincts.', desc: 'Audit judgment takes time and exposure. The scenarios you got wrong are worth revisiting — understanding why is more valuable than the score.' },
+    { min: 2, max: 3, label: 'SOLID FOUNDATION', title: 'You have the right instincts.', desc: 'You understand the framework well and caught some genuinely tricky scenarios. The harder cases — where context matters as much as the rule — are where your judgment will continue to develop.' },
+    { min: 4, max: 4, label: 'DETAIL-ORIENTED ANALYST', title: 'Strong technical grounding.', desc: 'You read the evidence carefully and apply the controls consistently. The occasional miss usually comes from missing a contextual detail — like shared credentials or a policy nuance. That awareness comes with more walkthroughs.' },
+    { min: 5, max: 5, label: 'EXPERIENCED PRACTITIONER', title: 'You think like a senior auditor.', desc: 'You caught the difficult scenarios — the ones where the right answer required reading past the obvious conclusion. Your instinct to document exceptions while noting context is exactly right.' },
+    { min: 6, max: 6, label: 'AUDIT SHARP', title: 'Near-perfect judgment.', desc: 'You caught every scenario including the credential overlap in the test environment and the NIS2 nuance. That level of attention to layered risk is what separates a useful audit from a checkbox exercise.' },
+  ];
+
+  const arch = archetypes.find(a => score >= a.min && score <= a.max);
+  document.getElementById('archetypeLabel').textContent = arch.label;
+  document.getElementById('resultsTitle').textContent = arch.title;
+  document.getElementById('resultsDesc').textContent = arch.desc;
+
+  const breakdown = Object.entries(domainScores).map(([domain, data]) => `
+    <div class="rb-row">
+      <span class="rb-label">${domain}</span>
+      <span class="rb-val ${data.correct === data.total ? 'correct' : data.correct === 0 ? 'wrong' : 'gold'}">${data.correct}/${data.total}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('resultsBreakdown').innerHTML = `
+    <div class="rb-title">PERFORMANCE BY DOMAIN</div>
+    ${breakdown}
+    <div class="rb-row">
+      <span class="rb-label">OVERALL</span>
+      <span class="rb-val gold">${score}/${SCENARIOS.length} (${Math.round(score/SCENARIOS.length*100)}%)</span>
+    </div>
+  `;
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function restartQuiz() {
+  document.getElementById('resultsScreen').style.display = 'none';
+  startQuiz();
+}
+</script>
+</body>
+</html>
